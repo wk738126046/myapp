@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block body %}
+    <style>
+        body {
+            text-align: left;
+        }
+
+
+
+    </style>
+    <h1>物体检测</h1>
+    <p>选择一张图片，点击“检测”即可看到物体检测后的结果。</p>
+    <script src="http://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+
+        <form id="form1" method="POST">
+
+            <div class="input-group mb-3">
+                <div class="input-group-prepend">
+                    <span class="input-group-text">Upload</span>
+                </div>
+                <div class="custom-file">
+                    <input style="width: 30%" type="file" onchange="draw_img_and_upload();" name="img"
+                           class="custom-file-input"
+                           id="inputGroupFile01">
+                    <label class="custom-file-label" for="inputGroupFile01" style="width:300px">Choose file</label>
+                </div>
+            </div>
+
+        </form>
+        <div>
+            <button onclick="detect();" disabled="disabled" id="submit_button" class="btn btn-lg btn-default">检测</button>
+        </div>
+
+
+    </br>
+    <div>
+        <img id="tulip" src=""/>
+    </div>
+    <div>
+        <canvas id="myCanvas">
+            Your browser does not support the HTML5 canvas tag.
+        </canvas>
+    </div>
+
+    <script type="text/javascript">
+        var g_result;
+        var g_url
+        var img_raw;
+        var colors = ["red", "blue", "yellow", "pink"];
+
+        function upload() {
+            var form = new FormData(document.getElementById('form1'));
+            clearCanvas();
+            document.getElementById('tulip').hidden = true;
+            {#if($(window).width() < 1500)#}
+            {#    document.getElementById('tulip').setAttribute('width', $(window).width());#}
+
+
+            // var form = {}
+            $.ajax({
+                //几个参数需要注意一下
+                beforeSend: function () {
+                    document.getElementById('submit_button').disabled = true;
+                },
+                type: "POST",//方法类型
+                url: "/detector/api/upload",//url
+                data: form,
+                processData: false,
+                contentType: false,
+                cache: false,
+                //dataType:"json",
+                success: function (result) {
+                    g_url = result;
+                    console.log(result);//打印服务端返回的数据(调试用)
+                    {#alert("上传成功");#}
+                    document.getElementById('submit_button').disabled = false;
+
+                },
+                error: function () {
+                    alert("异常！");
+                }
+            });
+        }
+
+        function draw_img_and_upload() {
+
+            var img = $('#form1').find('input')[0].files[0];
+            var reader = new FileReader();
+
+            //创建文件读取相关的变量
+            var imgFile;
+
+            //为文件读取成功设置事件
+            reader.onload = function (e) {
+                imgFile = e.target.result;
+                $("#tulip").attr('src', imgFile);
+                upload();
+            };
+
+            //正式读取文件
+            reader.readAsDataURL(img);
+
+        }
+
+        function detect() {
+            document.getElementById('tulip').hidden = true;
+            var c = document.getElementById("myCanvas");
+            var ctx = c.getContext("2d");
+
+
+            var img = document.getElementById("tulip");
+            var scale = 1;
+            c.width = $('#body').width();
+
+
+            scale = c.width / img.width;
+            c.height = img.height * scale;
+            ctx.scale(scale, scale);
+
+            ctx.drawImage(img, 0, 0);
+            $.ajax({
+                //几个参数需要注意一下
+                type: "POST",//方法类型
+                url: "/detector/api/detect",//url
+                data: {url: g_url},
+
+                dataType: "json",
+                success: function (result) {
+                    // g_result = result;
+                    console.log(result);//打印服务端返回的数据(调试用)
+                    g_result = result;
+                    for (i in result) {
+                        data = result[i];
+                        id = data[0];
+
+                        w = data[2][2];
+                        h = data[2][3];
+                        x = data[2][0] - w / 2;
+                        y = data[2][1] - h / 2;
+
+                        ctx.beginPath();
+                        ctx.lineWidth = 2 / scale;
+                        var color = "rgb(" + Math.floor(Math.random() * 255) + ',' + Math.floor(Math.random() * 255) + "," + Math.floor(Math.random() * 255) + ")";
+                        ctx.strokeStyle = color;
+                        ctx.rect(x, y, w, h);
+                        ctx.stroke();
+                        ctx.fillStyle = color;
+                        ctx.font = '' + 20 / scale + "px Arial";
+                        ctx.fillText(id + ' ' + data[1].toFixed(4), x, y - 10);
+
+                    }
+                },
+                error: function () {
+                    alert("异常！");
+                }
+            });
+
+        }
+
+        function clearCanvas() {
+            var c = document.getElementById("myCanvas");
+            var cxt = c.getContext("2d");
+            c.height = c.height;
+        }
+    </script>
+
+{% endblock %}
